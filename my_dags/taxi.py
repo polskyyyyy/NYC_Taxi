@@ -19,6 +19,15 @@ default_args = {
 }
 
 def download_dataset(year_month: str):
+    """
+    Download a NYC yellow taxi dataset from a public source.
+
+    Args:
+        year_month (str): Year and month of the dataset to be downloaded.
+
+    Returns:
+        str: HDFS path of the downloaded dataset.
+    """
     url = (
         f'https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year_month}.parquet'
     )
@@ -45,15 +54,25 @@ def download_dataset(year_month: str):
 
 
 def merge_parquet_files(hdfs_directory: str, output_file: str):
-    """
-    Сливает все parquet файлы из указанной директории на HDFS в один файл.
-    После слияния удаляет исходные файлы из HDFS.
-    
-    :param hdfs_directory: Директория на HDFS, где хранятся файлы Parquet
-    :param output_file: Путь для сохранения объединённого файла Parquet на HDFS
-    :return: Путь объединённого файла
-    """
+
     # Инициализация клиента HDFS через WebHDFSHook
+    """
+    Merge multiple Parquet files into a single one.
+
+    The function takes a list of Parquet files, reads them into DataFrames,
+    concatenates them into a single DataFrame and writes it back to a single
+    Parquet file.
+
+    Args:
+        hdfs_directory (str): HDFS directory containing Parquet files to be merged.
+        output_file (str): HDFS path of the output Parquet file.
+
+    Returns:
+        str: HDFS path of the output Parquet file.
+
+    Raises:
+        ValueError: If no Parquet files are found in the directory.
+    """
     hdfs_hook = WebHDFSHook(webhdfs_conn_id='polskii_hdfs_default')
     hdfs_client = hdfs_hook.get_conn()
 
@@ -117,12 +136,30 @@ def taxi_dag():
     )
 
     @task
-    def download_file():
+    def download_file():        
+        """
+        Downloads a NYC yellow taxi dataset from a public source using the current date.
+
+        Args:
+            None
+
+        Returns:
+            str: HDFS path of the downloaded dataset.
+        """
         context = get_current_context()
         return download_dataset(context['execution_date'].strftime('%Y-%m'))
 
     @task
     def check_and_merge(year_month: str):
+        """
+        Checks if the main file exists and either renames the new file as main or merges the new file with the main one.
+
+        Args:
+            year_month (str): Year and month of the dataset to be checked.
+
+        Returns:
+            str: HDFS path of the merged dataset.
+        """
         hdfs_directory = '/user/b.polskii/data'
         main_file = f'{hdfs_directory}/yellow_tripdata_main.parquet'
         new_file = f'{hdfs_directory}/yellow_tripdata_{year_month}.parquet'
